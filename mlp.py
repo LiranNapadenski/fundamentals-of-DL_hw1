@@ -44,15 +44,11 @@ test_dataset = CIFAR10Dataset(X_test, y_test)
 train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
 test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False)
 
-def set_parameters(model, std, lr, momentum):
-    def init_weights_gaussian(m):
-        if isinstance(m, nn.Linear):
-            nn.init.normal_(m.weight, mean=0.0, std=std)
-            if m.bias is not None:
-                nn.init.zeros_(m.bias)
+def set_parameters(model, lr, momentum, init_weights):
+    model.apply(init_weights)
     optimizer = optim.SGD(model.parameters(), lr=lr, momentum=momentum)
     loss_fn = nn.CrossEntropyLoss()
-    return init_weights_gaussian, optimizer, loss_fn
+    return model, optimizer, loss_fn
 
 # set model
 model = nn.Sequential(
@@ -64,15 +60,15 @@ model = nn.Sequential(
 )
 
 # training loop
-def train_and_evaluate(model, epochs, train_loader, test_loader, optimizer, loss_fn, init_weights, device):
+def train_and_evaluate(model, epochs, train_loader, test_loader, optimizer, loss_fn, device):
     history = {
         'train_loss': [], 'train_acc': [],
         'test_loss': [], 'test_acc': []
     }
-    model.to(device)
-    model.apply(init_weights)
 
     epoch_bar = tqdm(range(epochs), desc="Training Progress", unit="epoch")
+
+    model.to(device)
 
     for epoch in epoch_bar:
         # --- TRAINING PHASE ---
@@ -135,10 +131,18 @@ def grid_search(model, param_grid, train_loader, test_loader, device):
                 for epoch in param_grid['epochs']:
                     print(f"Testing std={std}, lr={lr}, momentum={momentum}, epochs={epoch}")
 
-                    init_weights, optimizer, loss_fn = set_parameters(model, std=std, lr=lr, momentum=momentum)
+                    model.to(device)
+                    # We create an init_weights function to apply BEFORE the optimizer is set
+                    def init_weights(m):
+                        if isinstance(m, nn.Linear):
+                            nn.init.normal_(m.weight, mean=0.0, std=std)
+                            if m.bias is not None:
+                                nn.init.zeros_(m.bias)
+                    
+                    _, optimizer, loss_fn = set_parameters(model, lr=lr, momentum=momentum, init_weights=init_weights)
                     history = train_and_evaluate(
                         model, epochs=epoch, train_loader=train_loader, test_loader=test_loader,
-                        optimizer=optimizer, loss_fn=loss_fn, init_weights=init_weights, device=device
+                        optimizer=optimizer, loss_fn=loss_fn, device=device
                     )
 
                     # avrage train accuracy at the end of training

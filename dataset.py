@@ -35,9 +35,8 @@ def generete_data(PATH = 'cifar-10-batches-py', num_train = 5000, num_test = 100
     print("Test labels shape:", test_labels.shape)
 
     # Normalize data to be between 0 and 1
-    scaler = MinMaxScaler()
-    train_data = scaler.fit_transform(train_data)
-    test_data = scaler.transform(test_data)
+    train_data = train_data.astype(np.float32) / 255.0
+    test_data = test_data.astype(np.float32) / 255.0
 
     indices_train = np.random.choice(train_data.shape[0], size=num_train, replace=False)
     indices_test = np.random.choice(test_data.shape[0], size=num_test, replace=False)
